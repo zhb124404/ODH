@@ -106,7 +106,7 @@ class Ankiweb {
         csrf_token: profile.token,
         data: JSON.stringify(data),
         mid: profile.modelids[note.modelName],
-        deck: note.deckName
+        deck: profile.decksMapping[note.deckName]
       }
       let request = {
         url: 'https://ankiuser.net/edit/save',
@@ -137,7 +137,7 @@ class Ankiweb {
   async saveNote (note, retryCount = 1) {
     try {
       let resp = await this.api_save(note, this.profile)
-      if (resp > 0) {
+      if (resp.length > 0) {
         return true
       } else if (retryCount > 0 && (this.profile = await this.getProfile())) {
         return this.saveNote(note, retryCount - 1)
@@ -149,11 +149,36 @@ class Ankiweb {
     }
   }
 
-  parseData (response) {
+  // get decks and noteTypes
+  async getAddInfo () {
+    return new Promise((resolve, reject) => {
+      let url = 'https://ankiuser.net/edit/getAddInfo'
+      $.get(url, (result) => {
+        resolve(result)
+      })
+    })
+  }
+
+  async getNotetypeFields (ntid) {
+    return new Promise((resolve, reject) => {
+      let url = 'https://ankiuser.net/edit/getNotetypeFields?ntid=' + ntid
+      $.get(url, (result) => {
+        resolve(result.fields)
+      })
+    })
+  }
+
+  async parseData (response) {
     //return {deck:'default', model:'basic'};
     const token = /anki\.Editor\('(.*)'/.exec(response)[1]
-    const [models, decks, curModelID] = JSON.parse('[' + /new anki\.EditorAddMode\((.*)\);/.exec(response)[1] + ']')
+    // const [models, decks, curModelID] = JSON.parse('[' + /new anki\.EditorAddMode\((.*)\);/.exec(response)[1] + ']')
+    const { decks, notetypes: models } = await this.getAddInfo()
 
+    for (let i = 0; i < models.length; i++) {
+      models[i].flds = await this.getNotetypeFields(models[i].id)
+    }
+
+    let decksMapping = []
     let decknames = []
     let modelnames = []
     let modelids = {}
@@ -161,6 +186,10 @@ class Ankiweb {
 
     for (const deck of Object.values(decks)) {
       decknames.push(deck.name)
+    }
+
+    for (const deck of decks) {
+      decksMapping[deck.name] = deck.id
     }
 
     for (const model of models) {
@@ -174,6 +203,7 @@ class Ankiweb {
       modelfieldnames[model.name] = fieldnames
     }
     return {
+      decksMapping,
       decknames,
       modelnames,
       modelids,
