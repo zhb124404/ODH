@@ -23,7 +23,7 @@ class ODHFront {
 
         chrome.runtime.onMessage.addListener(this.onBgMessage.bind(this));
         window.addEventListener('message', e => this.onFrameMessage(e));
-        document.addEventListener('selectionchange', e => this.userSelectionChanged(e));
+        // document.addEventListener('selectionchange', e => this.userSelectionChanged(e));
         //window.addEventListener('selectionend', e => this.onSelectionEnd(e));
     }
 
@@ -48,7 +48,7 @@ class ODHFront {
     }
 
     onDoubleClick(e) {
-        if (!isValidElement())
+        if (!isValidElement() ||  !e.altKey)
             return;
 
         if (this.timeout)
